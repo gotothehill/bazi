@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试页面</title>
+</head>
+<body>
+    <div id="test">初始化测试</div>
+    <div id="baziInfo">
+        <h3>📊 命盘信息</h3>
+        <div class="info-item">正在加载...</div>
+    </div>
+    <div id="lifeStages">
+        <!-- 人生阶段会动态生成 -->
+    </div>
+    <button onclick="testInit()">测试初始化</button>
+    
+    <script>
+        // 模拟八字数据
+        const testBaziData = {
+            birth_info: {
+                date: '1990-01-01',
+                time: '8',
+                gender: '男',
+                shengxiao: '马',
+                calendar_type: '农历'
+            }
+        };
+        
+        // 模拟保存到localStorage
+        localStorage.setItem('baziData', JSON.stringify(testBaziData));
+        
+        // 人生阶段配置
+        const lifeStages = [
+            { name: '童年', ageRange: '0-8岁', description: '天真烂漫的启蒙时期' },
+            { name: '少年', ageRange: '9-18岁', description: '求学成长的关键时期' },
+            { name: '青年', ageRange: '19-28岁', description: '事业起步的奋斗时期' },
+            { name: '壮年', ageRange: '29-38岁', description: '事业家庭的双线发展' },
+            { name: '中年', ageRange: '39-48岁', description: '人生巅峰的收获时期' },
+            { name: '中老年', ageRange: '49-58岁', description: '智慧沉淀的传承时期' },
+            { name: '老年', ageRange: '59-68岁', description: '回首人生的总结时期' }
+        ];
+        
+        // 游戏状态
+        let gameState = {
+            baziData: null,
+            storyHistory: []
+        };
+        
+        function displayBaziInfo() {
+            const baziInfo = document.getElementById('baziInfo');
+            const birthInfo = gameState.baziData.birth_info;
+            
+            baziInfo.innerHTML = `
+                <h3>📊 命盘信息</h3>
+                <div class="info-item">📅 ${birthInfo.date}</div>
+                <div class="info-item">⏰ ${birthInfo.time}点</div>
+                <div class="info-item">👤 ${birthInfo.gender}</div>
+                <div class="info-item">🐲 ${birthInfo.shengxiao}</div>
+            `;
+        }
+        
+        function generateLifeStages() {
+            const stagesContainer = document.getElementById('lifeStages');
+            stagesContainer.innerHTML = lifeStages.map((stage, index) => `
+                <div class="life-stage ${index === 0 ? 'current' : ''}" id="stage-${index}">
+                    <h4>${stage.name}</h4>
+                    <p>${stage.ageRange}</p>
+                    <p>${stage.description}</p>
+                </div>
+            `).join('');
+        }
+        
+        function testInit() {
+            console.log('开始测试初始化...');
+            
+            // 从localStorage获取八字数据
+            const baziDataStr = localStorage.getItem('baziData');
+            if (!baziDataStr) {
+                alert('未找到八字数据');
+                return;
+            }
+            
+            gameState.baziData = JSON.parse(baziDataStr);
+            console.log('八字数据载入成功:', gameState.baziData);
+            
+            // 显示八字信息
+            displayBaziInfo();
+            console.log('八字信息显示完成');
+            
+            // 生成人生阶段
+            generateLifeStages();
+            console.log('人生阶段生成完成');
+            
+            document.getElementById('test').innerHTML = '初始化完成！';
+        }
+        
+        // 页面加载后自动测试
+        window.addEventListener('load', testInit);
+    </script>
+</body>
+</html>

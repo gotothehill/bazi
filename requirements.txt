@@ -1,0 +1,4 @@
+flask>=2.0.0
+requests>=2.25.0
+lunar-python>=1.4.1
+colorama>=0.4.0
