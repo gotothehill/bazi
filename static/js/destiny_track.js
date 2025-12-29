@@ -1,0 +1,1292 @@
+// 游戏状态
+        let gameState = {
+            baziData: null,
+            currentAge: 0,
+            currentStage: '童年',
+            destinyScore: 100,
+            eventCount: 0,
+            choiceHistory: [],
+            storyHistory: [],
+            settings: {
+                storyStyle: 'realistic',
+                startTime: 'birth'
+            }
+        };
+        
+        // AI配置
+        let aiConfig = {
+            provider: 'openai',
+            model: 'gpt-3.5-turbo',
+            api_key: '',
+            api_url: ''
+        };
+        
+        // 人生阶段配置
+        const lifeStages = [
+            { name: '童年', ageRange: '0-8岁', description: '天真烂漫的启蒙时期' },
+            { name: '少年', ageRange: '9-18岁', description: '求学成长的关键时期' },
+            { name: '青年', ageRange: '19-28岁', description: '事业起步的奋斗时期' },
+            { name: '壮年', ageRange: '29-38岁', description: '事业家庭的双线发展' },
+            { name: '中年', ageRange: '39-48岁', description: '人生巅峰的收获时期' },
+            { name: '中老年', ageRange: '49-58岁', description: '智慧沉淀的传承时期' },
+            { name: '老年', ageRange: '59-68岁', description: '回首人生的总结时期' }
+        ];
+        // Markdown 渲染（本地 marked 优先，失败则兜底纯文本换行）
+        function renderMarkdown(content) {
+            const hasMarked = typeof window.marked !== 'undefined' && typeof window.marked.parse === 'function';
+            if (hasMarked) {
+                return window.marked.parse(content);
+            }
+            const safe = (content || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;')
+                .replace(/\n/g, '<br>');
+            return `<p>${safe}</p>`;
+        }
+        
+        
+        // 初始化游戏
+        async function initGame() {
+            try {
+                console.log('开始初始化游戏...');
+
+                // 从localStorage获取八字数据
+                const baziDataStr = localStorage.getItem('baziData');
+                if (!baziDataStr) {
+                    alert('未找到八字数据，请先完成八字分析');
+                    window.close();
+                    return;
+                }
+
+                gameState.baziData = JSON.parse(baziDataStr);
+                console.log('八字数据载入成功:', gameState.baziData);
+
+                // 显示八字信息
+                displayBaziInfo();
+                console.log('八字信息显示完成');
+
+                // 生成人生阶段
+                generateLifeStages();
+                console.log('人生阶段生成完成');
+
+                // 获取AI配置
+                loadAIConfig();
+                console.log('AI配置加载完成');
+
+                // 设置故事风格选择事件
+                setupStyleSelectionEvents();
+                console.log('风格选择事件设置完成');
+
+                console.log('游戏初始化完成');
+
+            } catch (error) {
+                console.error('初始化游戏失败:', error);
+                alert('游戏初始化失败，请重试');
+            }
+        }
+        
+        // 设置故事风格选择事件
+        function setupStyleSelectionEvents() {
+            const storyStyleRadios = document.querySelectorAll('input[name="storyStyle"]');
+            const realisticOptions = document.getElementById('realisticOptions');
+
+            storyStyleRadios.forEach(radio => {
+                radio.addEventListener('change', function() {
+                    if (this.value === 'realistic') {
+                        realisticOptions.style.display = 'block';
+                    } else {
+                        realisticOptions.style.display = 'none';
+                        // 其他风格默认从出生开始
+                        const birthRadio = document.querySelector('input[name="startTime"][value="birth"]');
+                        if (birthRadio) {
+                            birthRadio.checked = true;
+                        }
+                    }
+                });
+            });
+
+            // 初始化时检查当前选择的风格
+            const currentStyle = document.querySelector('input[name="storyStyle"]:checked');
+            if (currentStyle && currentStyle.value !== 'realistic') {
+                realisticOptions.style.display = 'none';
+            }
+        }
+        
+        // 根据设置开始游戏
+        async function startGameWithSettings() {
+            try {
+                // 获取用户选择的设置
+                const storyStyle = document.querySelector('input[name="storyStyle"]:checked').value;
+                let startTime = 'birth'; // 默认从出生开始
+
+                // 只有写实风格才考虑开始时间选择
+                if (storyStyle === 'realistic') {
+                    const startTimeRadio = document.querySelector('input[name="startTime"]:checked');
+                    if (startTimeRadio) {
+                        startTime = startTimeRadio.value;
+                    }
+                }
+
+                // 保存设置到游戏状态
+                gameState.settings.storyStyle = storyStyle;
+                gameState.settings.startTime = startTime;
+
+                // 根据开始时间设置初始年龄
+                if (storyStyle === 'realistic' && startTime === 'current') {
+                    // 计算当前年龄（简化计算，假设生日已过）
+                    const birthYear = parseInt(gameState.baziData.birth_info.date.split('-')[0]);
+                    const currentYear = new Date().getFullYear();
+                    gameState.currentAge = currentYear - birthYear;
+                } else {
+                    gameState.currentAge = 0;
+                }
+
+                console.log('游戏设置:', gameState.settings);
+                console.log('初始年龄:', gameState.currentAge);
+
+                // 更新游戏统计显示
+                updateGameStats();
+                updateCurrentStage();
+
+                // 隐藏设置界面，显示游戏界面
+                document.getElementById('gameSettings').style.display = 'none';
+                document.getElementById('storySection').style.display = 'block';
+
+                // 开始第一个故事
+                await generateNextStory();
+
+            } catch (error) {
+                console.error('开始游戏失败:', error);
+                alert('开始游戏失败，请重试');
+            }
+        }
+        
+        // 显示八字信息
+        function displayBaziInfo() {
+            const baziInfo = document.getElementById('baziInfo');
+            const birthInfo = gameState.baziData.birth_info;
+            
+            baziInfo.innerHTML = `
+                <h3>📊 命盘信息</h3>
+                <div class="info-item">📅 ${birthInfo.date}</div>
+                <div class="info-item">⏰ ${birthInfo.time}点</div>
+                <div class="info-item">👤 ${birthInfo.gender}</div>
+                <div class="info-item">🐲 ${birthInfo.shengxiao}</div>
+            `;
+        }
+        
+        // 生成人生阶段
+        function generateLifeStages() {
+            const stagesContainer = document.getElementById('lifeStages');
+            stagesContainer.innerHTML = lifeStages.map((stage, index) => `
+                <div class="life-stage ${index === 0 ? 'current' : ''}" id="stage-${index}" onclick="viewStageHistory(${index})">
+                    <h4>${stage.name}</h4>
+                    <p>${stage.ageRange}</p>
+                    <p>${stage.description}</p>
+                    <div class="stage-event-count" id="stageCount-${index}"></div>
+                </div>
+            `).join('');
+            
+            // 更新阶段事件计数
+            updateStageEventCounts();
+        }
+        
+        // 更新阶段事件计数
+        function updateStageEventCounts() {
+            lifeStages.forEach((stage, index) => {
+                const minAge = index * 10;
+                const maxAge = (index + 1) * 10 - 1;
+                const eventsInStage = gameState.storyHistory.filter(story => 
+                    story.age >= minAge && story.age <= maxAge
+                ).length;
+                
+                const countElement = document.getElementById(`stageCount-${index}`);
+                if (countElement) {
+                    if (eventsInStage > 0) {
+                        countElement.textContent = `${eventsInStage}个事件`;
+                        countElement.style.fontSize = '0.8em';
+                        countElement.style.opacity = '0.8';
+                        countElement.style.marginTop = '5px';
+                    } else {
+                        countElement.textContent = '';
+                    }
+                }
+            });
+        }
+        
+        // 查看阶段历史
+        function viewStageHistory(stageIndex) {
+            const stage = lifeStages[stageIndex];
+            const minAge = stageIndex * 10;
+            const maxAge = (stageIndex + 1) * 10 - 1;
+            
+            const stageEvents = gameState.storyHistory.filter(story => 
+                story.age >= minAge && story.age <= maxAge
+            );
+            
+            if (stageEvents.length === 0) {
+                alert(`${stage.name}阶段暂无事件记录`);
+                return;
+            }
+            
+            const modalContent = `
+                <div style="max-width: 600px; max-height: 80vh; overflow-y: auto;">
+                    <h3>${stage.name}阶段 (${stage.ageRange})</h3>
+                    <div style="margin: 15px 0;">
+                        ${stageEvents.map(event => `
+                            <div style="margin: 15px 0; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #667eea;">
+                                <h4>${event.title}</h4>
+                                <p><strong>年龄：</strong>${event.age}岁</p>
+                                <div style="margin: 10px 0; line-height: 1.6;">
+                                    ${renderMarkdown(event.story)}
+                                </div>
+                                ${gameState.choiceHistory[event.eventId] ? `<p><strong>选择：</strong>${gameState.choiceHistory[event.eventId]}</p>` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                    <button onclick="closeStageModal()" style="background: #6c5ce7; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin-top: 15px;">关闭</button>
+                </div>
+            `;
+            
+            showModal(`${stage.name}阶段历史`, modalContent);
+        }
+        
+        // 加载AI配置
+        function loadAIConfig() {
+            // 优先从localStorage获取命运轨迹专用的AI配置
+            let savedConfig = localStorage.getItem('destinyAiConfig');
+            if (savedConfig) {
+                aiConfig = JSON.parse(savedConfig);
+                updateConfigStatus();
+                return;
+            }
+            
+            // 如果没有专用配置，尝试从通用AI配置获取
+            savedConfig = localStorage.getItem('aiConfig');
+            if (savedConfig) {
+                aiConfig = JSON.parse(savedConfig);
+                updateConfigStatus();
+                return;
+            }
+            
+            // 都没有配置，显示未配置状态
+            updateConfigStatus();
+        }
+        
+        // 更新配置状态显示
+        function updateConfigStatus() {
+            const configStatus = document.getElementById('configStatus');
+            const configBtn = document.getElementById('configBtn');
+            
+            if (aiConfig && aiConfig.api_key) {
+                configStatus.innerHTML = `<span style="color: #00b894;">${aiConfig.provider} - 已配置</span>`;
+                configBtn.textContent = '⚙️ 修改配置';
+            } else {
+                configStatus.innerHTML = '<span style="color: #ff6b6b;">未配置</span>';
+                configBtn.textContent = '⚙️ 配置AI';
+            }
+        }
+        
+        // 显示AI配置界面
+        function showAIConfig() {
+            const modal = document.getElementById('aiConfigModal');
+            
+            // 如果已有配置，填入当前值
+            if (aiConfig && aiConfig.api_key) {
+                document.getElementById('modalAiProvider').value = aiConfig.provider || 'openai';
+                document.getElementById('modalAiModel').value = aiConfig.model || 'gpt-3.5-turbo';
+                document.getElementById('modalAiApiKey').value = aiConfig.api_key || '';
+                document.getElementById('modalAiApiUrl').value = aiConfig.api_url || '';
+                document.getElementById('modalCustomModel').value = '';
+                document.getElementById('modalCustomHeaders').value = aiConfig.custom_headers ? JSON.stringify(aiConfig.custom_headers, null, 2) : '';
+            }
+            
+            updateModalAIConfig();
+            modal.style.display = 'flex';
+        }
+        
+        // 隐藏AI配置界面
+        function hideAIConfig() {
+            document.getElementById('aiConfigModal').style.display = 'none';
+        }
+        
+        // 更新模态框中的AI配置选项
+        function updateModalAIConfig() {
+            const provider = document.getElementById('modalAiProvider').value;
+            const modelSelect = document.getElementById('modalAiModel');
+            const customModelGroup = document.getElementById('modalCustomModelGroup');
+            const customHeaderGroup = document.getElementById('modalCustomHeaderGroup');
+            const apiUrlInput = document.getElementById('modalAiApiUrl');
+            
+            // 更新模型选项
+            if (provider === 'openai') {
+                modelSelect.innerHTML = `
+                    <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                    <option value="gpt-4">GPT-4</option>
+                    <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                    <option value="gpt-4o">GPT-4o</option>
+                `;
+                apiUrlInput.placeholder = "留空使用默认: https://api.openai.com/v1/chat/completions";
+            } else if (provider === 'claude') {
+                modelSelect.innerHTML = `
+                    <option value="claude-3-sonnet-20240229">Claude 3 Sonnet</option>
+                    <option value="claude-3-opus-20240229">Claude 3 Opus</option>
+                    <option value="claude-3-haiku-20240307">Claude 3 Haiku</option>
+                `;
+                apiUrlInput.placeholder = "留空使用默认: https://api.anthropic.com/v1/messages";
+            } else if (provider === 'deepseek') {
+                modelSelect.innerHTML = `
+                    <option value="deepseek-chat">DeepSeek Chat</option>
+                    <option value="deepseek-coder">DeepSeek Coder</option>
+                `;
+                apiUrlInput.placeholder = "留空使用默认: https://api.deepseek.com/v1/chat/completions";
+            } else if (provider === 'custom') {
+                modelSelect.innerHTML = `
+                    <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                    <option value="gpt-4">GPT-4</option>
+                    <option value="custom-model">自定义模型</option>
+                `;
+                apiUrlInput.placeholder = "必填: 输入完整的API地址";
+            }
+            
+            // 显示/隐藏自定义选项
+            if (provider === 'custom') {
+                customModelGroup.style.display = 'block';
+                customHeaderGroup.style.display = 'block';
+            } else {
+                customModelGroup.style.display = 'none';
+                customHeaderGroup.style.display = 'none';
+            }
+        }
+        
+        // 保存AI配置
+        function saveAIConfig() {
+            const provider = document.getElementById('modalAiProvider').value;
+            const model = document.getElementById('modalAiModel').value;
+            const apiKey = document.getElementById('modalAiApiKey').value;
+            const apiUrl = document.getElementById('modalAiApiUrl').value;
+            const customModel = document.getElementById('modalCustomModel').value;
+            const customHeaders = document.getElementById('modalCustomHeaders').value;
+            
+            if (!apiKey.trim()) {
+                alert('请输入API Key');
+                return;
+            }
+            
+            if (provider === 'custom' && !apiUrl.trim()) {
+                alert('自定义服务商必须填写API地址');
+                return;
+            }
+            
+            // 构建配置对象
+            let finalModel = model;
+            aiConfig = {
+                provider: provider,
+                model: finalModel,
+                api_key: apiKey.trim()
+            };
+            
+            if (provider === 'custom') {
+                if (model === 'custom-model' && customModel.trim()) {
+                    finalModel = customModel.trim();
+                    aiConfig.model = finalModel;
+                }
+                aiConfig.api_url = apiUrl.trim();
+                
+                if (customHeaders.trim()) {
+                    try {
+                        aiConfig.custom_headers = JSON.parse(customHeaders.trim());
+                    } catch (e) {
+                        alert('自定义Headers格式错误，请检查JSON格式');
+                        return;
+                    }
+                }
+            } else if (apiUrl.trim()) {
+                aiConfig.api_url = apiUrl.trim();
+            }
+            
+            // 保存配置
+            localStorage.setItem('destinyAiConfig', JSON.stringify(aiConfig));
+            
+            // 更新状态显示
+            updateConfigStatus();
+            
+            // 隐藏模态框
+            hideAIConfig();
+            
+            alert('AI配置保存成功！');
+        }
+        
+        // 生成下一个故事
+        async function generateNextStory() {
+            try {
+                // 检查AI配置
+                if (!aiConfig || !aiConfig.api_key) {
+                    const storyContent = document.getElementById('storyContent');
+                    storyContent.innerHTML = `
+                        <div style="text-align: center; padding: 40px; color: #e74c3c;">
+                            <h3>⚠️ 需要配置AI</h3>
+                            <p>请先配置AI API信息才能开始游戏</p>
+                            <button onclick="showAIConfig()" style="background: linear-gradient(45deg, #FF6B6B, #4ECDC4); color: white; border: none; padding: 15px 30px; border-radius: 8px; cursor: pointer; font-size: 1.1em; margin-top: 15px;">
+                                🤖 立即配置
+                            </button>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                // 显示加载状态
+                const storyContent = document.getElementById('storyContent');
+                const choicesSection = document.getElementById('choicesSection');
+                
+                storyContent.innerHTML = `
+                    <div class="loading">
+                        <div class="loading-spinner"></div>
+                        AI正在根据您的命理特征生成剧情...
+                    </div>
+                `;
+                choicesSection.style.display = 'none';
+                
+                // 构建AI提示词
+                const prompt = buildStoryPrompt();
+                
+                // 使用流式API
+                const response = await fetch('/api/destiny-story-stream', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        prompt: prompt,
+                        ai_config: aiConfig,
+                        game_state: gameState
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP错误: ${response.status}`);
+                }
+                
+                // 处理流式响应 - 简化版本：等待完整输出后再渲染
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let fullContent = '';
+                let storyData = null;
+
+                // 显示加载状态
+                storyContent.innerHTML = `
+                    <div class="loading">
+                        <div class="loading-spinner"></div>
+                        AI正在根据您的命理特征生成剧情...
+                    </div>
+                `;
+
+                while (true) {
+                    const { done, value } = await reader.read();
+
+                    if (done) {
+                        break;
+                    }
+
+                    const chunk = decoder.decode(value, { stream: true });
+                    const lines = chunk.split('\n');
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = line.slice(6);
+                            if (data.trim() === '') continue;
+
+                            try {
+                                const parsed = JSON.parse(data);
+
+                                if (parsed.error) {
+                                    throw new Error(parsed.error);
+                                }
+
+                                if (parsed.content) {
+                                    fullContent += parsed.content;
+                                }
+
+                                if (parsed.done) {
+                                    console.log('AI输出完成，开始解析...');
+                                    break;
+                                }
+                            } catch (e) {
+                                console.error('解析错误:', e);
+                                continue;
+                            }
+                        }
+                    }
+                }
+
+                // AI输出完成，解析JSON数据
+                console.log('完整内容:', fullContent);
+
+                const jsonMatch = fullContent.match(/```json\s*({[\s\S]*?})\s*```/);
+                if (jsonMatch) {
+                    try {
+                        storyData = JSON.parse(jsonMatch[1]);
+                        console.log('解析到故事数据:', storyData);
+
+                        // 渲染标题和故事
+                        storyContent.innerHTML = `
+                            <div style="padding: 20px;">
+                                <h3 style="color: #667eea; font-size: 1.5em; margin-bottom: 20px;">${storyData.title}</h3>
+                                <div style="line-height: 1.8; white-space: pre-wrap;">${storyData.story}</div>
+                            </div>
+                        `;
+
+                        // 延迟显示选择按钮
+                        setTimeout(() => {
+                            displayChoices(storyData);
+                        }, 1000);
+
+                    } catch (e) {
+                        console.error('JSON解析失败:', e);
+                        throw new Error('故事数据解析失败');
+                    }
+                } else {
+                    console.error('未找到JSON数据');
+                    throw new Error('未找到有效的故事数据');
+                }
+                
+                if (!storyData) {
+                    throw new Error('未能获取完整的故事数据');
+                }
+                
+            } catch (error) {
+                console.error('生成故事失败:', error);
+                document.getElementById('storyContent').innerHTML = `
+                    <div style="color: #ff6b6b; text-align: center; padding: 20px;">
+                        ❌ 故事生成失败: ${error.message}
+                        <br><br>
+                        <button onclick="generateNextStory()" style="background: #6c5ce7; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
+                            🔄 重试
+                        </button>
+                        <button onclick="showAIConfig()" style="background: #e17055; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin-left: 10px;">
+                            ⚙️ 检查配置
+                        </button>
+                    </div>
+                `;
+            }
+        }
+        
+        // 显示选择按钮的函数
+        function displayChoices(storyData) {
+            console.log('显示选择按钮，故事数据:', storyData);
+
+            const choicesSection = document.getElementById('choicesSection');
+            const choicesList = document.getElementById('choicesList');
+
+            if (!storyData || !storyData.choices || storyData.choices.length === 0) {
+                console.error('没有可用的选择项');
+                return;
+            }
+
+            // 随机化选择数量和命运值
+            let choices = [...storyData.choices];
+
+            // 随机化选择数量（2-4个）
+            const choiceCount = Math.min(choices.length, Math.floor(Math.random() * 3) + 2);
+
+            // 随机打乱选择顺序
+            for (let i = choices.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [choices[i], choices[j]] = [choices[j], choices[i]];
+            }
+
+            // 只取前 choiceCount 个选择
+            choices = choices.slice(0, choiceCount);
+
+            // 随机化命运值（避免固定值）
+            choices.forEach((choice, index) => {
+                const baseImpact = choice.destiny_impact || 0;
+                const randomVariation = Math.floor(Math.random() * 8) - 4; // -4 到 +4
+                choice.destiny_impact = Math.max(-15, Math.min(15, baseImpact + randomVariation));
+                choice.choiceIndex = index; // 保存原始索引
+            });
+
+            // 检查是否应该结束游戏
+            const shouldEndGame = gameState.currentAge >= 80 || gameState.destinyScore <= 0;
+
+            if (shouldEndGame) {
+                // 显示游戏结束按钮
+                choicesList.innerHTML = `
+                    <button class="choice-button" onclick="endGame()" style="background: linear-gradient(45deg, #ff6b6b, #ee5a24);">
+                        <span class="choice-number">✨</span>
+                        查看人生总结和盖棺定论
+                    </button>
+                `;
+            } else {
+                // 显示正常选择（隐藏命运值）
+                choicesList.innerHTML = choices.map((choice, index) => {
+                    const choiceId = `choice_${Date.now()}_${index}`;
+                    const safeText = choice.text.replace(/'/g, "\\'").replace(/"/g, '\\"');
+                    const safeTitle = storyData.title.replace(/'/g, "\\'").replace(/"/g, '\\"');
+
+                    return `
+                        <button class="choice-button" id="${choiceId}" onclick="makeChoice(${choice.choiceIndex}, '${safeText}', ${choice.destiny_impact}, '${safeTitle}', '${choiceId}')">
+                            <span class="choice-number">${index + 1}</span>
+                            ${choice.text}
+                            <br>
+                            <small style="opacity: 0.8; margin-left: 35px;">预期影响: ${choice.consequence || '未知'}</small>
+                        </button>
+                    `;
+                }).join('');
+            }
+
+            choicesSection.style.display = 'block';
+            console.log('选择按钮已显示');
+
+            // 保存当前故事
+            if (!gameState.storyHistory.find(s => s.title === storyData.title && s.age === gameState.currentAge)) {
+                gameState.storyHistory.push({
+                    ...storyData,
+                    age: gameState.currentAge,
+                    eventId: gameState.eventCount,
+                    timestamp: new Date().toISOString()
+                });
+            }
+        }
+        
+        // 构建故事提示词
+        function buildStoryPrompt() {
+            const birthInfo = gameState.baziData.birth_info;
+            const baziAnalysis = gameState.baziData.bazi_analysis;
+            const shengxiaoAnalysis = gameState.baziData.shengxiao_analysis;
+            const currentStage = lifeStages[Math.floor(gameState.currentAge / 10)] || lifeStages[0];
+            const storyStyle = gameState.settings.storyStyle;
+            const startTime = gameState.settings.startTime;
+            
+            // 根据故事风格生成不同的背景设定
+            let styleContext = '';
+            let styleRequirements = '';
+            
+            switch (storyStyle) {
+                case 'realistic':
+                    const birthYear = parseInt(birthInfo.date.split('-')[0]);
+                    let currentYear;
+
+                    if (startTime === 'current') {
+                        // 从现在开始：当前年份 + 游戏中经过的年龄
+                        currentYear = new Date().getFullYear() + (gameState.currentAge - (new Date().getFullYear() - birthYear));
+                    } else {
+                        // 从出生开始：出生年份 + 当前游戏年龄
+                        currentYear = birthYear + gameState.currentAge;
+                    }
+
+                    styleContext = `
+## 故事背景设定：
+- 故事风格：现实写实
+- 时代背景：${currentYear}年
+- 历史环境：请结合${currentYear}年前后的真实历史事件和社会背景
+- 开始时间：${startTime === 'birth' ? '从出生开始' : '从现在开始'}
+- 当前实际年龄：${gameState.currentAge}岁`;
+
+                    styleRequirements = `
+- 故事必须基于真实的历史事件和社会背景
+- 融入${currentYear}年代的时代特色（科技、文化、政治环境等）
+- 事件要符合当时的社会现实和历史可能性
+- 如果涉及重大历史事件，要保持历史准确性
+- 故事不必过于玄乎，随机事件不应太统一类型，大事件也有可能是黑天鹅事件，比如疫情、地震、经济危机、战争、科技变革等
+- 重要：故事中提到的年龄必须与当前游戏年龄(${gameState.currentAge}岁)保持一致`;
+                    break;
+                    
+                case 'fantasy':
+                    styleContext = `
+## 故事背景设定：
+- 故事风格：奇幻冒险
+- 世界观：命理法则化为魔法力量的奇幻世界
+- 八字对应：五行成为魔法元素，十神化为天赋技能
+- 神煞系统：古代神煞成为神秘力量的源泉`;
+                    
+                    styleRequirements = `
+- 将八字命理概念融入奇幻元素（如五行魔法、命格天赋等）
+- 创造充满想象力的奇幻场景和生物
+- 保持命理学逻辑的同时，增加魔法冒险元素
+- 故事要有奇幻色彩但仍体现人生选择的重要性`;
+                    break;
+                    
+                case 'historical':
+                    styleContext = `
+## 故事背景设定：
+- 故事风格：古代传奇
+- 时代背景：中国古代传统社会
+- 文化环境：传统命理学盛行的时代
+- 社会结构：古代的家族、官场、江湖体系`;
+                    
+                    styleRequirements = `
+- 故事发生在中国古代，体现传统文化和社会制度
+- 融入古代的科举、家族、师承等社会元素
+- 使用符合古代背景的语言风格和情节设定
+- 强调传统命理学在古代社会中的作用和影响`;
+                    break;
+                    
+                case 'modern':
+                    styleContext = `
+## 故事背景设定：
+- 故事风格：都市传说
+- 时代背景：现代都市
+- 科技环境：命理与现代科技的神秘融合
+- 社会背景：现代都市中隐藏的命理秘密`;
+                    
+                    styleRequirements = `
+- 故事设定在现代都市环境中
+- 将传统命理学与现代科技巧妙结合
+- 创造都市传说般的神秘氛围
+- 体现现代人生活中的命理元素和选择`;
+                    break;
+            }
+            
+            return `你是一位精通命理学的游戏剧情设计师，请基于以下八字信息为用户创建一个命运轨迹游戏的情节。
+
+## 用户八字信息：
+- 出生日期：${birthInfo.date} (${birthInfo.calendar_type})
+- 出生时辰：${birthInfo.time}点
+- 性别：${birthInfo.gender}
+- 生肖：${birthInfo.shengxiao}
+
+## 八字分析：
+${baziAnalysis}
+
+## 生肖分析：
+年支：${shengxiaoAnalysis.year_zhi}
+相合生肖：${JSON.stringify(shengxiaoAnalysis.compatible)}
+相冲生肖：${JSON.stringify(shengxiaoAnalysis.incompatible)}
+
+${styleContext}
+
+## 当前游戏状态：
+- 当前年龄：${gameState.currentAge}岁
+- 人生阶段：${currentStage.name} (${currentStage.description})
+- 命运值：${gameState.destinyScore}
+- 已发生事件：${gameState.eventCount}个
+
+## 历史选择记录：
+${gameState.choiceHistory.length > 0 ? gameState.choiceHistory.map((choice, index) => `${index + 1}. ${choice}`).join('\n') : '暂无历史选择'}
+
+## 任务要求：
+请创建一个符合用户命理特征的人生情节，包含：
+
+1. **情节描述**：根据用户的八字特点和当前年龄阶段，描述一个具体的人生事件或情况
+2. **3-4个选择项**：提供3-4个不同的应对方式，体现不同的人生态度和价值观
+
+## 重要注意事项：
+- 故事中提到的年龄必须严格与当前游戏年龄(${gameState.currentAge}岁)保持一致
+- 不要在故事中出现与当前年龄不符的描述
+- 如果是0岁，应该描述婴儿时期的事件
+- 如果是成年人，不要描述童年场景
+
+## 故事风格要求：
+${styleRequirements}
+
+## 输出格式：
+请严格按照以下JSON格式输出：
+
+\`\`\`json
+{
+  "title": "情节标题",
+  "story": "详细的故事描述，要生动有趣，符合命理特征和故事风格",
+  "choices": [
+    {
+      "text": "选择1的描述",
+      "consequence": "这个选择可能带来的结果",
+      "destiny_impact": 5
+    },
+    {
+      "text": "选择2的描述", 
+      "consequence": "这个选择可能带来的结果",
+      "destiny_impact": -3
+    },
+    {
+      "text": "选择3的描述",
+      "consequence": "这个选择可能带来的结果", 
+      "destiny_impact": 0
+    }
+  ]
+}
+\`\`\`
+
+要求：
+- 故事要符合用户的八字命理特征和选择的故事风格
+- 选择要有明确的后果预示
+- destiny_impact范围在-10到+10之间，但不应固定顺序和数值，要随机分布
+- 语言要生动有趣，适合游戏体验
+- 体现命理学中的因果关系
+- **关键要求：故事中的年龄描述必须与当前游戏年龄(${gameState.currentAge}岁)完全一致，不得出现年龄错误**`;
+        }
+        
+        // 做出选择
+        async function makeChoice(choiceIndex, choiceText, destinyImpact, storyTitle, choiceId) {
+            try {
+                console.log('用户选择:', { choiceIndex, choiceText, destinyImpact, storyTitle, choiceId });
+
+                // 立即禁用所有选择按钮，避免重复点击
+                const choiceButtons = document.querySelectorAll('.choice-button');
+                choiceButtons.forEach(btn => {
+                    btn.disabled = true;
+                    btn.style.opacity = '0.6';
+                    btn.style.cursor = 'not-allowed';
+                });
+
+                // 高亮选中的按钮
+                if (choiceId) {
+                    const selectedButton = document.getElementById(choiceId);
+                    if (selectedButton) {
+                        selectedButton.style.background = 'linear-gradient(45deg, #00b894, #00a085)';
+                        selectedButton.style.transform = 'scale(0.98)';
+                    }
+                }
+
+                // 记录选择
+                gameState.choiceHistory.push(choiceText);
+                gameState.destinyScore += destinyImpact;
+                gameState.eventCount++;
+                gameState.currentAge += Math.floor(Math.random() * 3) + 1; // 随机增加1-3岁
+
+                // 更新显示
+                updateGameStats();
+                updateCurrentStage();
+                updateHistoryDisplay();
+                updateStageEventCounts();
+
+                // 隐藏选择区域
+                document.getElementById('choicesSection').style.display = 'none';
+
+                // 显示加载状态
+                const storyContent = document.getElementById('storyContent');
+                storyContent.innerHTML = `
+                    <div class="loading">
+                        <div class="loading-spinner"></div>
+                        正在根据您的选择生成下一个故事...
+                    </div>
+                `;
+
+                // 延迟后生成下一个故事
+                setTimeout(async () => {
+                    await generateNextStory();
+                }, 1500);
+
+            } catch (error) {
+                console.error('处理选择失败:', error);
+
+                // 重新启用按钮
+                const choiceButtons = document.querySelectorAll('.choice-button');
+                choiceButtons.forEach(btn => {
+                    btn.disabled = false;
+                    btn.style.opacity = '1';
+                    btn.style.cursor = 'pointer';
+                });
+
+                alert('处理选择时发生错误，请重试');
+            }
+        }
+        
+        // 更新游戏统计
+        function updateGameStats() {
+            document.getElementById('currentAge').textContent = `${gameState.currentAge}岁`;
+            document.getElementById('destinyScore').textContent = gameState.destinyScore;
+            document.getElementById('eventCount').textContent = gameState.eventCount;
+        }
+        
+        // 更新当前阶段
+        function updateCurrentStage() {
+            const stageIndex = Math.min(Math.floor(gameState.currentAge / 10), lifeStages.length - 1);
+            
+            // 更新当前阶段样式
+            document.querySelectorAll('.life-stage').forEach((stage, index) => {
+                stage.classList.toggle('current', index === stageIndex);
+            });
+            
+            gameState.currentStage = lifeStages[stageIndex].name;
+        }
+        
+        // 更新历史记录显示
+        function updateHistoryDisplay() {
+            const historyContent = document.getElementById('historyContent');
+            
+            if (gameState.storyHistory.length === 0) {
+                historyContent.innerHTML = '<div class="empty-history">暂无历史记录</div>';
+                return;
+            }
+            
+            const historyHTML = gameState.storyHistory.map((story, index) => {
+                const choice = gameState.choiceHistory[index];
+                return `
+                    <div class="history-item" onclick="viewHistoryItem(${index})">
+                        <div class="history-item-title">${story.title}</div>
+                        ${choice ? `<div class="history-item-choice">选择: ${choice}</div>` : ''}
+                        <div class="history-item-age">${story.age}岁时</div>
+                    </div>
+                `;
+            }).join('');
+            
+            historyContent.innerHTML = historyHTML;
+        }
+        
+        // 查看历史事件详情
+        function viewHistoryItem(index) {
+            const story = gameState.storyHistory[index];
+            const choice = gameState.choiceHistory[index];
+            
+            const modalContent = `
+                <div style="max-width: 600px; max-height: 80vh; overflow-y: auto;">
+                    <h3>${story.title}</h3>
+                    <p><strong>年龄：</strong>${story.age}岁</p>
+                    <div style="margin: 15px 0; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                        ${renderMarkdown(story.story)}
+                    </div>
+                    ${choice ? `<p><strong>您的选择：</strong>${choice}</p>` : ''}
+                    <div style="margin-top: 20px; display: flex; gap: 10px;">
+                        <button onclick="closeHistoryModal()" style="background: #6c5ce7; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">关闭</button>
+                        ${choice ? `<button onclick="modifyChoice(${index})" style="background: #e17055; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">修改选择</button>` : ''}
+                    </div>
+                </div>
+            `;
+            
+            showModal('历史回顾', modalContent);
+        }
+        
+        // 显示模态框
+        function showModal(title, content) {
+            const modal = document.createElement('div');
+            modal.id = 'historyModal';
+            modal.style.cssText = `
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                background: rgba(0,0,0,0.8); z-index: 2000;
+                display: flex; align-items: center; justify-content: center;
+                padding: 20px;
+            `;
+            
+            modal.innerHTML = `
+                <div style="background: white; border-radius: 15px; padding: 30px; position: relative;">
+                    <h2 style="margin-bottom: 20px; color: #333;">${title}</h2>
+                    ${content}
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // 点击背景关闭
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    closeHistoryModal();
+                }
+            });
+        }
+        
+        // 关闭历史模态框
+        function closeHistoryModal() {
+            const modal = document.getElementById('historyModal');
+            if (modal) {
+                modal.remove();
+            }
+        }
+        
+        // 关闭阶段模态框
+        function closeStageModal() {
+            const modal = document.getElementById('historyModal');
+            if (modal) {
+                modal.remove();
+            }
+        }
+        
+        // 修改历史选择
+        function modifyChoice(eventIndex) {
+            if (confirm('确定要修改这个选择吗？这将重置后续所有事件，游戏将从此节点重新开始。')) {
+                closeHistoryModal();
+                
+                // 重置游戏状态到指定事件之前
+                const targetEvent = gameState.storyHistory[eventIndex];
+                
+                // 保留到指定事件的所有状态
+                gameState.storyHistory = gameState.storyHistory.slice(0, eventIndex + 1);
+                gameState.choiceHistory = gameState.choiceHistory.slice(0, eventIndex);
+                
+                // 恢复到该事件时的状态
+                gameState.currentAge = targetEvent.age;
+                gameState.eventCount = eventIndex;
+                
+                // 重新计算命运值（基于保留的选择）
+                gameState.destinyScore = 100;
+                for (let i = 0; i < gameState.choiceHistory.length; i++) {
+                    // 这里简化处理，实际应该记录每个选择的影响值
+                    const randomImpact = Math.floor(Math.random() * 6) - 2; // -2 到 +3
+                    gameState.destinyScore += randomImpact;
+                }
+                
+                // 更新显示
+                updateGameStats();
+                updateCurrentStage();
+                updateHistoryDisplay();
+                updateStageEventCounts();
+                
+                // 重新生成该事件的选择
+                restoreEventChoices(targetEvent, eventIndex);
+            }
+        }
+        
+        // 恢复事件选择界面
+        function restoreEventChoices(storyData, eventIndex) {
+            // 显示故事
+            document.getElementById('gameSettings').style.display = 'none';
+            document.getElementById('storySection').style.display = 'block';
+            document.getElementById('storyTitle').textContent = storyData.title;
+            document.getElementById('storyContent').innerHTML = `
+                <div style="padding: 20px; line-height: 1.8;">
+                    ${renderMarkdown(storyData.story)}
+                </div>
+            `;
+            
+            // 重新生成选择（模拟原始选择）
+            const choices = [
+                {
+                    text: "积极应对，寻求最佳解决方案",
+                    consequence: "可能带来正面影响",
+                    destiny_impact: Math.floor(Math.random() * 6) + 2
+                },
+                {
+                    text: "谨慎处理，避免冒险",
+                    consequence: "保持现状，小幅改善",
+                    destiny_impact: Math.floor(Math.random() * 4) - 1
+                },
+                {
+                    text: "随遇而安，顺其自然",
+                    consequence: "影响不确定",
+                    destiny_impact: Math.floor(Math.random() * 4) - 2
+                },
+                {
+                    text: "另辟蹊径，寻找新机会",
+                    consequence: "有风险但可能有回报",
+                    destiny_impact: Math.floor(Math.random() * 8) - 3
+                }
+            ];
+            
+            // 随机选择2-4个选项
+            const choiceCount = Math.floor(Math.random() * 3) + 2;
+            const selectedChoices = choices.sort(() => Math.random() - 0.5).slice(0, choiceCount);
+            
+            const choicesSection = document.getElementById('choicesSection');
+            const choicesList = document.getElementById('choicesList');
+            
+            choicesList.innerHTML = selectedChoices.map((choice, index) => {
+                const choiceId = `restore_choice_${Date.now()}_${index}`;
+                const safeText = choice.text.replace(/'/g, "\\'").replace(/"/g, '\\"');
+                const safeTitle = storyData.title.replace(/'/g, "\\'").replace(/"/g, '\\"');
+                return `
+                    <button class="choice-button" id="${choiceId}" onclick="makeChoice(${index}, '${safeText}', ${choice.destiny_impact}, '${safeTitle}', '${choiceId}')">
+                        <span class="choice-number">${index + 1}</span>
+                        ${choice.text}
+                        <br>
+                        <small style="opacity: 0.8; margin-left: 35px;">预期影响: ${choice.consequence}</small>
+                    </button>
+                `;
+            }).join('');
+            
+            choicesSection.style.display = 'block';
+        }
+        
+        // 结束游戏并生成完整故事总结
+        async function endGame() {
+            try {
+                // 检查AI配置
+                if (!aiConfig || !aiConfig.api_key) {
+                    alert('需要配置AI才能生成人生总结');
+                    return;
+                }
+                
+                // 显示加载状态
+                document.getElementById('choicesSection').style.display = 'none';
+                document.getElementById('storyContent').innerHTML = `
+                    <div class="loading">
+                        <div class="loading-spinner"></div>
+                        正在生成您的人生总结和盖棺定论...
+                    </div>
+                `;
+                
+                // 构建总结提示词
+                const summaryPrompt = buildSummaryPrompt();
+                
+                // 调用AI生成总结
+                const response = await fetch('/api/destiny-story-stream', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        prompt: summaryPrompt,
+                        ai_config: aiConfig,
+                        game_state: gameState
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP错误: ${response.status}`);
+                }
+                
+                // 处理流式响应
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let fullContent = '';
+                
+                // 初始化流式显示
+                document.getElementById('storyContent').innerHTML = `
+                    <div style="padding: 20px;">
+                        <h2 style="color: #667eea; text-align: center; margin-bottom: 30px;">📜 人生总结</h2>
+                        <div id="summaryContent" style="line-height: 1.8; white-space: pre-wrap;"></div>
+                        <span id="summaryCursor" style="background: #ffd700; color: #f093fb; padding: 2px 4px; animation: blink 1s infinite;">|</span>
+                    </div>
+                `;
+                
+                const summaryContentDiv = document.getElementById('summaryContent');
+                const summaryCursor = document.getElementById('summaryCursor');
+                
+                while (true) {
+                    const { done, value } = await reader.read();
+                    
+                    if (done) {
+                        break;
+                    }
+                    
+                    const chunk = decoder.decode(value, { stream: true });
+                    const lines = chunk.split('\n');
+                    
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = line.slice(6);
+                            if (data.trim() === '') continue;
+                            
+                            try {
+                                const parsed = JSON.parse(data);
+                                
+                                if (parsed.error) {
+                                    throw new Error(parsed.error);
+                                }
+                                
+                                if (parsed.content) {
+                                    fullContent += parsed.content;
+                                    summaryContentDiv.textContent = fullContent;
+                                }
+                                
+                                if (parsed.done) {
+                                    summaryCursor.style.display = 'none';
+                                    
+                                    // 添加重新开始按钮
+                                    setTimeout(() => {
+                                        summaryContentDiv.innerHTML += `
+                                            <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 2px solid #eee;">
+                                                <button onclick="resetGame()" style="background: linear-gradient(45deg, #667eea, #764ba2); color: white; border: none; padding: 15px 30px; border-radius: 8px; cursor: pointer; font-size: 1.1em; margin-right: 15px;">
+                                                    🔄 重新开始人生
+                                                </button>
+                                                <button onclick="window.close()" style="background: linear-gradient(45deg, #ff6b6b, #ee5a24); color: white; border: none; padding: 15px 30px; border-radius: 8px; cursor: pointer; font-size: 1.1em;">
+                                                    🏠 返回主页
+                                                </button>
+                                            </div>
+                                        `;
+                                    }, 2000);
+                                    break;
+                                }
+                            } catch (e) {
+                                console.error('解析JSON错误:', e);
+                                continue;
+                            }
+                        }
+                    }
+                }
+                
+            } catch (error) {
+                console.error('生成人生总结失败:', error);
+                document.getElementById('storyContent').innerHTML = `
+                    <div style="color: #ff6b6b; text-align: center; padding: 20px;">
+                        ❌ 生成人生总结失败: ${error.message}
+                        <br><br>
+                        <button onclick="endGame()" style="background: #6c5ce7; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
+                            🔄 重试
+                        </button>
+                    </div>
+                `;
+            }
+        }
+        
+        // 构建总结提示词
+        function buildSummaryPrompt() {
+            const birthInfo = gameState.baziData.birth_info;
+            const baziAnalysis = gameState.baziData.bazi_analysis;
+            
+            // 组织人生事件
+            const lifeEvents = gameState.storyHistory.map((story, index) => {
+                const choice = gameState.choiceHistory[index];
+                return `**${story.age}岁 - ${story.title}**\n${story.story}\n${choice ? `选择：${choice}` : ''}`;
+            }).join('\n\n');
+            
+            return `你是一位德高望重的命理大师，现在需要为一个人的完整人生做出总结和盖棺定论。
+
+## 基本信息：
+- 出生日期：${birthInfo.date}
+- 性别：${birthInfo.gender}
+- 生肖：${birthInfo.shengxiao}
+
+## 八字分析：
+${baziAnalysis}
+
+## 人生轨迹：
+${lifeEvents}
+
+## 人生数据：
+- 最终年龄：${gameState.currentAge}岁
+- 命运值：${gameState.destinyScore}
+- 经历事件：${gameState.eventCount}个
+- 故事风格：${gameState.settings.storyStyle}
+
+## 任务要求：
+请基于以上信息，写一篇深刻的人生总结，包含：
+
+1. **人生回顾**：总结这个人的主要人生阶段和关键事件
+2. **性格特点**：基于八字分析和人生选择，分析其性格特征
+3. **成就与遗憾**：客观评价人生的成功和不足
+4. **人生感悟**：从命理角度分析人生的因果关系
+5. **盖棺定论**：给出最终的人生评价和启示
+
+## 写作要求：
+- 语言优美，富有哲理
+- 结合命理学知识，体现因果关系
+- 既要客观公正，又要充满人文关怀
+- 篇幅适中，约500-800字
+- 以第三人称叙述，语调庄重而温暖
+
+请以纯文本形式输出，不需要JSON格式。`;
+        }
+        
+        // 重置游戏
+        function resetGame() {
+            if (confirm('确定要重新开始游戏吗？所有进度将丢失。')) {
+                gameState = {
+                    baziData: gameState.baziData, // 保留八字数据
+                    currentAge: 0,
+                    currentStage: '童年',
+                    destinyScore: 100,
+                    eventCount: 0,
+                    choiceHistory: [],
+                    storyHistory: [],
+                    settings: gameState.settings // 保留游戏设置
+                };
+                
+                updateGameStats();
+                generateLifeStages();
+                updateHistoryDisplay();
+                
+                // 显示设置界面，重新选择
+                document.getElementById('gameSettings').style.display = 'block';
+                document.getElementById('storySection').style.display = 'none';
+                document.getElementById('choicesSection').style.display = 'none';
+            }
+        }
+        
+        // 页面加载完成后初始化游戏
+        window.addEventListener('load', function() {
+            console.log('页面加载完成，开始初始化游戏...');
+            initGame();
+        });
