@@ -7,7 +7,9 @@ import os
 import sys
 import requests
 import json
-from datas import shengxiaos, zhi_atts
+from lunar_python import Solar, Lunar
+from datas import shengxiaos, zhi_atts, tiaohous, jinbuhuan, ges
+from ganzhi import gan5, zhi5, ten_deities
 
 app = Flask(__name__, template_folder='templates')
 
@@ -307,6 +309,82 @@ class ShengxiaoAPI:
         
         return result
 
+def build_bazi_struct(birth_date, birth_time="8", calendar_type="农历"):
+    """生成结构化的八字排盘数据，便于前端展示表格/图表"""
+    try:
+        year, month, day = [int(x) for x in birth_date.split('-')]
+        hour = int(birth_time)
+
+        if calendar_type == "公历":
+            lunar = Solar.fromYmdHms(year, month, day, hour, 0, 0).getLunar()
+        else:
+            lunar = Lunar.fromYmdHms(year, month, day, hour, 0, 0)
+
+        eight_char = lunar.getEightChar()
+        gans = [
+            eight_char.getYearGan(),
+            eight_char.getMonthGan(),
+            eight_char.getDayGan(),
+            eight_char.getTimeGan()
+        ]
+        zhis = [
+            eight_char.getYearZhi(),
+            eight_char.getMonthZhi(),
+            eight_char.getDayZhi(),
+            eight_char.getTimeZhi()
+        ]
+
+        day_master = gans[2]
+        pillars = []
+        labels = ["年柱", "月柱", "日柱", "时柱"]
+
+        for label, gan, zhi in zip(labels, gans, zhis):
+            hidden_stems = list(zhi5[zhi].keys())
+            main_hidden = hidden_stems[0] if hidden_stems else None
+            pillars.append({
+                "label": label,
+                "gan": gan,
+                "zhi": zhi,
+                "gan_element": gan5.get(gan),
+                "zhi_element": gan5.get(main_hidden) if main_hidden else None,
+                "gan_ten_god": ten_deities[day_master][gan],
+                "zhi_ten_god": ten_deities[day_master][main_hidden] if main_hidden else "",
+                "hidden_stems": hidden_stems,
+                "hidden_ten_gods": [ten_deities[day_master][h] for h in hidden_stems],
+                "hidden_elements": [gan5.get(h) for h in hidden_stems]
+            })
+
+        # 五行计分：沿用原脚本的简化权重（干加5分，支藏干按权值累加）
+        five_elements = {"金": 0, "木": 0, "水": 0, "火": 0, "土": 0}
+        for gan in gans:
+            five_elements[gan5[gan]] += 5
+        for zhi in zhis:
+            for stem, score in zhi5[zhi].items():
+                five_elements[gan5[stem]] += score
+
+        advice = {}
+        try:
+            key = f"{day_master}{zhis[1]}"
+            advice = {
+                "tiao_hou": tiaohous.get(key),
+                "jin_bu_huan": jinbuhuan.get(key),
+                "ge_ju": ges.get(ten_deities[day_master]['本'], {}).get(zhis[1])
+            }
+        except Exception as e:
+            print(f"结构化建议生成失败: {e}", file=sys.stderr)
+
+        return {
+            "pillars": pillars,
+            "day_master": day_master,
+            "day_master_element": gan5.get(day_master),
+            "five_elements": five_elements,
+            "advice": advice
+        }
+    except Exception as e:
+        # 结构化信息失败不应中断主流程
+        print(f"结构化八字生成失败: {e}", file=sys.stderr)
+        return None
+
 class BaziAPI:
     @staticmethod
     def run_bazi_analysis(birth_date, birth_time="8", gender="男", calendar_type="农历"):
@@ -588,6 +666,9 @@ def complete_analysis():
                 if not any(keyword in line for keyword in ['t.cn', 'http', '建议参见', 'pythontesting']):
                     filtered_lines.append(line)
             cleaned_output = '\n'.join(filtered_lines)
+
+        # 结构化八字排盘（用于前端表格/图表）
+        bazi_struct = build_bazi_struct(birth_date, birth_time, calendar_type)
         
         return jsonify({
             "birth_info": {
@@ -599,6 +680,7 @@ def complete_analysis():
             },
             "bazi_analysis": cleaned_output,
             "shengxiao_analysis": shengxiao_info,
+            "bazi_struct": bazi_struct,
             "success": True
         })
         

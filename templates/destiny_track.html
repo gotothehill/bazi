@@ -1,21 +1,26 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>命运轨迹 - 基于八字的人生模拟</title>
     <!-- Markdown解析库 -->
     <script src="/static/libs/marked.min.js"></script>
-    <link rel="stylesheet" href="/static/css/destiny_track.css">
+    <link rel="stylesheet" href="/static/css/destiny_track.css?v=2">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
 
 </head>
+
 <body>
     <div class="container">
         <div class="header">
             <h1>🎭 命运轨迹</h1>
             <p>基于八字命理的人生模拟游戏</p>
         </div>
-        
+
         <div class="main-content">
             <div class="sidebar">
                 <div class="bazi-info" id="baziInfo">
@@ -58,7 +63,7 @@
                     <button class="control-btn" onclick="window.close()">🏠 返回主页</button>
                 </div>
             </div>
-            
+
             <div class="game-area">
                 <!-- 游戏设置界面 -->
                 <div class="game-settings" id="gameSettings">
@@ -75,7 +80,7 @@
                                         <div class="option-desc">基于真实历史事件和社会背景，模拟真实人生轨迹</div>
                                     </div>
                                 </label>
-                                
+
                                 <label class="style-option">
                                     <input type="radio" name="storyStyle" value="fantasy">
                                     <div class="option-card">
@@ -84,7 +89,7 @@
                                         <div class="option-desc">融入奇幻元素，命理法则化为魔法力量的冒险世界</div>
                                     </div>
                                 </label>
-                                
+
                                 <label class="style-option">
                                     <input type="radio" name="storyStyle" value="historical">
                                     <div class="option-card">
@@ -93,7 +98,7 @@
                                         <div class="option-desc">穿越古代，体验传统命理在历史背景下的人生</div>
                                     </div>
                                 </label>
-                                
+
                                 <label class="style-option">
                                     <input type="radio" name="storyStyle" value="modern">
                                     <div class="option-card">
@@ -104,7 +109,7 @@
                                 </label>
                             </div>
                         </div>
-                        
+
                         <div class="setting-group" id="realisticOptions">
                             <h4>⏰ 开始时间</h4>
                             <div class="time-options">
@@ -116,7 +121,7 @@
                                         <div class="time-desc">完整体验人生轨迹，见证历史变迁</div>
                                     </div>
                                 </label>
-                                
+
                                 <label class="time-option">
                                     <input type="radio" name="startTime" value="current">
                                     <div class="time-card">
@@ -127,7 +132,7 @@
                                 </label>
                             </div>
                         </div>
-                        
+
                         <div class="setting-actions">
                             <button class="start-game-btn" onclick="startGameWithSettings()">
                                 🚀 开始命运之旅
@@ -135,7 +140,7 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <!-- 游戏主界面 -->
                 <div class="story-section" id="storySection" style="display: none;">
                     <div class="story-title" id="storyTitle">命运的开始</div>
@@ -146,7 +151,7 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="choices-section" id="choicesSection" style="display: none;">
                     <div class="choices-title">🤔 您会如何选择？</div>
                     <div id="choicesList">
@@ -154,7 +159,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <!-- 右侧浮动人生轨迹面板 -->
             <div class="trajectory-panel" id="trajectoryPanel">
                 <div class="history-panel" id="historyPanel">
@@ -165,7 +170,7 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- AI配置模态框 -->
         <div id="aiConfigModal" class="modal" style="display: none;">
             <div class="modal-content">
@@ -205,7 +210,8 @@
                     </div>
                     <div class="form-group" id="modalCustomHeaderGroup" style="display: none;">
                         <label for="modalCustomHeaders">自定义Headers (JSON格式)</label>
-                        <textarea id="modalCustomHeaders" placeholder='{"X-Custom-Header": "value"}' rows="3"></textarea>
+                        <textarea id="modalCustomHeaders" placeholder='{"X-Custom-Header": "value"}'
+                            rows="3"></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -218,4 +224,5 @@
 
     <script src="/static/js/destiny_track.js" defer></script>
 </body>
+
 </html>
