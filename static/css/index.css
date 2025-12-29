@@ -1167,3 +1167,112 @@ body {
         grid-template-columns: repeat(2, 1fr);
     }
 }
+
+/* Star Palace Diagram */
+.star-palace-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: auto auto auto;
+    gap: 15px;
+    padding: 24px;
+    background: #fcfcfc;
+    border-radius: 16px;
+    border: 1px solid #f0f0f0;
+    text-align: center;
+    max-width: 600px;
+    margin: 0 auto 20px auto;
+}
+
+.sp-item {
+    background: #fff;
+    border: 1px solid #eee;
+    border-radius: 12px;
+    padding: 12px 6px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    transition: transform 0.2s;
+}
+
+.sp-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.05);
+}
+
+.sp-title {
+    font-size: 0.75em;
+    color: #95a5a6;
+    margin-bottom: 6px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.sp-content {
+    font-weight: 800;
+    font-family: "Noto Serif SC", serif;
+    font-size: 1.15em;
+    color: #2d3436;
+    line-height: 1.2;
+}
+
+.sp-sub {
+    font-size: 0.75em;
+    color: #b2bec3;
+    margin-top: 4px;
+}
+
+/* Cross Layout positions */
+.sp-year {
+    grid-column: 2;
+    grid-row: 1;
+    border-top: 3px solid #74b9ff;
+    background: linear-gradient(to bottom, #f0f8ff, #fff);
+}
+
+.sp-month {
+    grid-column: 1;
+    grid-row: 2;
+    border-left: 3px solid #a29bfe;
+    background: linear-gradient(to right, #f3f0ff, #fff);
+}
+
+.sp-time {
+    grid-column: 3;
+    grid-row: 2;
+    border-right: 3px solid #55efc4;
+    background: linear-gradient(to left, #e0fbf4, #fff);
+}
+
+.sp-day {
+    grid-column: 2;
+    grid-row: 2;
+    border-bottom: 3px solid #ff7675;
+    transform: scale(1.15);
+    z-index: 2;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08);
+    background: #fff;
+}
+
+.sp-day:hover {
+    transform: scale(1.18) translateY(-2px);
+}
+
+.sp-connect-v {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    width: 2px;
+    background: #eee;
+    margin: 0 auto;
+    z-index: 0;
+}
+
+.sp-note {
+    grid-column: 1 /span 3;
+    grid-row: 3;
+    font-size: 0.8em;
+    color: #b2bec3;
+    margin-top: 15px;
+    font-style: italic;
+}

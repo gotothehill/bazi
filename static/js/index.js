@@ -593,20 +593,55 @@ function renderShenShaInfo(struct) {
 }
 
 
-function renderTenGodTable(tenGodCounts) {
-    const entries = Object.entries(tenGodCounts);
+function renderTenGodTable(struct) {
+    // Need raw pillars to find locations
+    if (!struct || !struct.pillars) return '';
+
+    const locationMap = {};
+    const countMap = {};
+
+    // Helper to add location
+    const addLoc = (god, loc) => {
+        if (!god) return;
+        if (!locationMap[god]) locationMap[god] = [];
+        locationMap[god].push(loc);
+        countMap[god] = (countMap[god] || 0) + 1;
+    };
+
+    struct.pillars.forEach(p => {
+        addLoc(p.gan_ten_god, `${p.label}干`);
+        // Only main hidden stem usually counted for main strength, but let's list all or main?
+        // User example shows "Year Branch" (Month Zhi). Let's use Zhi Ten God (Main Energy).
+        addLoc(p.zhi_ten_god, `${p.label}支`);
+    });
+
+    const entries = Object.entries(countMap);
     if (!entries.length) return '';
+
     const rows = entries
         .sort((a, b) => b[1] - a[1])
-        .map(([god, count]) => `<tr><td>${god}</td><td>${count}</td></tr>`)
+        .map(([god, count]) => {
+            const locs = locationMap[god].join('、');
+            // Simplified strength estimate based on location (Month > Day > Year > Time)
+            let strength = "弱";
+            if (locs.includes("月支")) strength = "旺"; // Command
+            else if (locs.includes("日支") || locs.includes("月干")) strength = "强";
+            else if (count >= 3) strength = "强";
+            else strength = "中";
+
+            return `<tr><td>${god}</td><td>${count}</td><td>${locs}</td><td>${strength}</td></tr>`;
+        })
         .join('');
+
     return `
                 <div class="pro-card">
-                    <h4>十神分布</h4>
-                    <table class="ten-god-table">
-                        <thead><tr><th>十神</th><th>数量</th></tr></thead>
-                        <tbody>${rows}</tbody>
-                    </table>
+                    <h4>十神详细分布表</h4>
+                    <div class="table-responsive">
+                        <table class="pillar-table-pro" style="font-size:0.9em;">
+                            <thead><tr><th>十神</th><th>数量</th><th>位置</th><th>强度(估)</th></tr></thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    </div>
                 </div>
             `;
 }
@@ -650,6 +685,43 @@ function renderAdvice(struct) {
     `;
 }
 
+
+/* New Visualization: Star Palace Diagram */
+function renderStarPalace(struct) {
+    if (!struct || !struct.pillars || struct.pillars.length < 4) return '';
+    const p = struct.pillars;
+
+    // Mapping: Year=Parents, Month=Siblings, Day=Spouse, Time=Children
+    const mapping = [
+        { title: '[父母宫] 年柱', class: 'sp-year', data: p[0] },
+        { title: '[兄弟宫] 月柱', class: 'sp-month', data: p[1] },
+        { title: '[夫妻宫] 日柱', class: 'sp-day', data: p[2] },
+        { title: '[子女宫] 时柱', class: 'sp-time', data: p[3] }
+    ];
+
+    const items = mapping.map(m => `
+        <div class="sp-item ${m.class}">
+            <div class="sp-title">${m.title}</div>
+            <div class="sp-content">
+                <span style="color:var(--element-${m.data.gan_element});">${m.data.gan}</span>
+                <span style="color:var(--element-${m.data.zhi_element});">${m.data.zhi}</span>
+            </div>
+            <div class="sp-sub">${m.data.na_yin}</div>
+        </div>
+    `).join('');
+
+    return `
+        <div class="pro-card">
+            <h4>命盘星宫图</h4>
+            <div class="star-palace-container">
+                <div class="sp-connect-v"></div>
+                ${items}
+                <div class="sp-note">此图展示了四柱对应的六亲宫位关系，直观呈现家庭结构。</div>
+            </div>
+        </div>
+    `;
+}
+
 function renderProPanels(struct) {
     if (!struct) return '';
     const tenGodCounts = summarizeTenGods(struct);
@@ -660,6 +732,10 @@ function renderProPanels(struct) {
     return `
                 ${renderGauge(struct)}
                 
+                <div class="stack-row full">
+                    ${renderStarPalace(struct)}
+                </div>
+
                 <div class="stack-row full">
                     <div class="pro-card">
                         ${renderPillarSection(struct)}
