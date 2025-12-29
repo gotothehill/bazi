@@ -456,36 +456,142 @@ function renderFiveElementSummary(struct) {
     return `<div style="padding:10px 0;display:flex;flex-direction:column;justify-content:center;height:100%;">${rows}</div>`;
 }
 
+
 function renderPillarTable(struct) {
     if (!struct || !struct.pillars) return '';
     const rows = struct.pillars.map(p => {
         const hidden = (p.hidden_stems || []).map((stem, idx) => {
             const tg = p.hidden_ten_gods ? p.hidden_ten_gods[idx] : '';
-            return `${stem}${tg ? `(${tg})` : ''}`;
-        }).join('、') || '无';
+            return `<span style="display:inline-block; margin-right:4px;">${stem}<span style="font-size:0.8em;color:#999;">${tg}</span></span>`;
+        }).join('');
+
+        let shensha = '';
+        if (p.shen_sha && p.shen_sha.length > 0) {
+            shensha = p.shen_sha.map(s => `<span class="ss-badge">${s}</span>`).join(' ');
+        }
+
         return `
                     <tr>
-                        <td>${p.label}</td>
-                        <td>${p.gan || ''}</td>
-                        <td>${p.zhi || ''}</td>
-                        <td>${p.gan_ten_god || ''}</td>
-                        <td>${p.zhi_ten_god || ''}</td>
-                        <td>${hidden}</td>
+                        <td class="p-label">${p.label}</td>
+                        <td class="p-gan" data-el="${p.gan_element}">
+                            ${p.gan}
+                            <div class="p-tg">${p.gan_ten_god || ''}</div>
+                        </td>
+                        <td class="p-zhi" data-el="${p.zhi_element}">
+                            ${p.zhi}
+                            <div class="p-tg">${p.zhi_ten_god || ''}</div>
+                        </td>
+                        <td class="p-nayin">${p.na_yin || '-'}</td>
+                        <td class="p-hidden">${hidden}</td>
+                        <td class="p-shensha">${shensha}</td>
                     </tr>
                 `;
     }).join('');
+
     return `
                 <div class="pro-card">
-                    <h4>四柱八字表</h4>
-                    <table class="pillar-table">
-                        <thead>
-                            <tr><th>柱</th><th>天干</th><th>地支</th><th>干十神</th><th>支十神</th><th>藏干</th></tr>
-                        </thead>
-                        <tbody>${rows}</tbody>
-                    </table>
+                    <h4>四柱排盘 (乾坤造化)</h4>
+                    <div class="table-responsive">
+                        <table class="pillar-table-pro">
+                            <thead>
+                                <tr><th>柱</th><th>天干</th><th>地支</th><th>纳音</th><th>藏干</th><th>神煞</th></tr>
+                            </thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    </div>
                 </div>
             `;
 }
+
+function renderDaYunTable(struct) {
+    if (!struct || !struct.da_yun) return '';
+    const items = struct.da_yun.map(dy => {
+        return `
+            <div class="dy-item">
+                <div class="dy-head">
+                    <span class="dy-age">${dy.start_age}岁</span>
+                    <span class="dy-year">${dy.start_year}</span>
+                </div>
+                <div class="dy-body">
+                    <div class="dy-gz">
+                        <span class="dy-gan" data-tg="${dy.ten_god}">${dy.gan}</span>
+                        <span class="dy-zhi">${dy.zhi}</span>
+                    </div>
+                    <div class="dy-nayin">${dy.na_yin}</div>
+                    <div class="dy-tg">${dy.ten_god}</div>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    return `
+        <div class="pro-card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
+                <h4>大运排盘</h4>
+                <div style="font-size:0.9em;color:#666;">${struct.start_yun_desc || ''}</div>
+            </div>
+            <div class="dayun-scroll">
+                ${items}
+            </div>
+        </div>
+    `;
+}
+
+function renderShenShaInfo(struct) {
+    if (!struct || !struct.extras) return '';
+    const ex = struct.extras;
+    const kw = ex.kong_wang || "无";
+    const mg = ex.ming_gong || "无";
+    const ty = ex.tai_yuan || "无";
+    const tyNy = ex.tai_yuan_nayin || "";
+
+    // Format Useful Gods with badges
+    const formatGods = (gods) => {
+        if (!gods || gods.length === 0) return '无';
+        const mapColor = { '金': '#f39c12', '木': '#2ecc71', '水': '#3498db', '火': '#e74c3c', '土': '#a0522d' };
+        return gods.map(g => `<span style="background:${mapColor[g] || '#eee'};color:#fff;padding:2px 6px;border-radius:4px;margin-right:4px;">${g}</span>`).join('');
+    };
+
+    return `
+        <div class="pro-card">
+            <h4>命理提示</h4>
+            <div class="info-grid-2">
+                <div class="ig-item">
+                    <span class="ig-label">日柱旬空</span>
+                    <span class="ig-val">${kw}</span>
+                </div>
+                <div class="ig-item">
+                    <span class="ig-label">命宫</span>
+                    <span class="ig-val">${mg}</span>
+                </div>
+                 <div class="ig-item">
+                    <span class="ig-label">胎元</span>
+                    <span class="ig-val">
+                        ${ty} <span style="font-size:0.8em;font-weight:normal;color:#999;">${tyNy}</span>
+                    </span>
+                </div>
+                 <div class="ig-item">
+                    <span class="ig-label">身强身弱</span>
+                    <span class="ig-val">${ex.strength || '未判'}</span>
+                </div>
+            </div>
+            
+            <div style="margin-top:15px;border-top:1px dashed #eee;padding-top:10px;">
+                <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+                    <span style="color:#666;">喜用神 (利)</span>
+                    <div>${formatGods(ex.yong_shen)}</div>
+                </div>
+                <div style="display:flex;justify-content:space-between;">
+                    <span style="color:#666;">忌神 (弊)</span>
+                    <div>${formatGods(ex.ji_shen)}</div>
+                </div>
+            </div>
+            
+            <p style="font-size:0.9em;color:#999;margin-top:10px;">* 以上喜用神基于五行平衡法简推，仅供参考。</p>
+        </div>
+    `;
+}
+
 
 function renderTenGodTable(tenGodCounts) {
     const entries = Object.entries(tenGodCounts);
@@ -526,14 +632,49 @@ function renderGauge(struct) {
             `;
 }
 
+function renderAdvice(struct) {
+    if (!struct || !struct.advice) return '';
+    const advice = struct.advice;
+    const item = (label, val) => `
+        <div style="margin-bottom:8px;">
+            <span style="display:inline-block;width:80px;color:#666;">${label}</span>
+            <span style="font-weight:600;">${val || '暂无'}</span>
+        </div>`;
+
+    return `
+        <div style="padding:10px 0;">
+             ${item('格局', advice.ge_ju)}
+             ${item('调候', advice.tiao_hou)}
+             ${item('金不换', advice.jin_bu_huan)}
+        </div>
+    `;
+}
+
 function renderProPanels(struct) {
     if (!struct) return '';
     const tenGodCounts = summarizeTenGods(struct);
+
+    // Check if we have new data to render new components
+    const hasDaYun = struct.da_yun && struct.da_yun.length > 0;
+
     return `
                 ${renderGauge(struct)}
+                
+                <div class="stack-row full">
+                    <div class="pro-card">
+                        ${renderPillarSection(struct)}
+                    </div>
+                </div>
+
                 <div class="stack-row full">
                     ${renderPillarTable(struct)}
                 </div>
+                
+                ${hasDaYun ? `
+                <div class="stack-row full">
+                    ${renderDaYunTable(struct)}
+                </div>` : ''}
+
                 <div class="stack-row">
                     ${renderTenGodTable(tenGodCounts)}
                     <div class="pro-card">
@@ -546,6 +687,7 @@ function renderProPanels(struct) {
                         </div>
                     </div>
                 </div>
+                
                 <div class="stack-row">
                     <div class="pro-card">
                         <h4>五行摘要</h4>
@@ -559,21 +701,16 @@ function renderProPanels(struct) {
                         <div style="font-size:12px;color:#666;margin-top:6px;text-align:center;">*权重为天干5分+藏干权值</div>
                     </div>
                 </div>
+                
                 <div class="stack-row full">
                     <div class="pro-card">
                         <h4>格局与调候</h4>
                         ${renderAdvice(struct)}
                     </div>
                 </div>
+                
                 <div class="stack-row">
-                    <div class="pro-card">
-                        <h4>神煞提示</h4>
-                        <p style="color:#888; margin:0;">暂无结构化神煞数据，需后端提供 day_shens 等解析结果。</p>
-                    </div>
-                    <div class="pro-card">
-                        <h4>喜用 / 忌神</h4>
-                        <p style="color:#888; margin:0;">暂未计算用神/忌神，需要后端输出判定结果。</p>
-                    </div>
+                    ${renderShenShaInfo(struct)}
                 </div>
             `;
 }

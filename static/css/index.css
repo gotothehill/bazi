@@ -775,3 +775,395 @@ body {
     font-size: 0.9em;
     line-height: 1.5;
 }
+
+/* =========================================
+   Professional Bazi Tables & Visualization
+   ========================================= */
+
+/* Container for scrolling if needed */
+.table-responsive {
+    overflow-x: auto;
+    margin-bottom: 20px;
+    border-radius: 12px;
+    background: #fff;
+    border: 1px solid #f0f0f0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+}
+
+.pillar-table-pro {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0;
+    font-size: 0.95em;
+}
+
+.pillar-table-pro th {
+    text-align: left;
+    padding: 16px 14px;
+    background: linear-gradient(to bottom, #fafbfc, #f4f6f8);
+    color: #535c68;
+    font-weight: 700;
+    border-bottom: 2px solid #eaeaea;
+    white-space: nowrap;
+    text-transform: uppercase;
+    font-size: 0.85em;
+    letter-spacing: 1px;
+}
+
+.pillar-table-pro td {
+    padding: 14px;
+    border-bottom: 1px solid #f5f5f5;
+    vertical-align: middle;
+    transition: background 0.2s;
+}
+
+.pillar-table-pro tr:hover td {
+    background: #fdfdfd;
+}
+
+.pillar-table-pro tr:last-child td {
+    border-bottom: none;
+}
+
+/* Pillar Columns Styling */
+.p-label {
+    font-weight: 800;
+    color: #6c5ce7;
+    /* Brand primary color */
+    width: 70px;
+}
+
+.p-gan,
+.p-zhi {
+    font-family: "Noto Serif SC", "Songti SC", serif;
+    font-size: 1.5em;
+    font-weight: 800;
+    position: relative;
+    min-width: 60px;
+    color: #2d3436;
+}
+
+/* Ten Gods (Small tags next to gan/zhi) */
+.p-tg {
+    display: inline-block;
+    font-size: 0.4em;
+    font-weight: 600;
+    background: #dfe6e9;
+    /* Neutral grey */
+    color: #636e72;
+    padding: 2px 5px;
+    border-radius: 4px;
+    vertical-align: super;
+    margin-left: 5px;
+    line-height: 1;
+    transform: translateY(-2px);
+}
+
+/* Element Colors for Gan/Zhi */
+[data-el="金"] {
+    color: #f1c40f;
+}
+
+[data-el="木"] {
+    color: #2ecc71;
+}
+
+[data-el="水"] {
+    color: #3498db;
+}
+
+[data-el="火"] {
+    color: #e74c3c;
+}
+
+[data-el="土"] {
+    color: #a0522d;
+}
+
+.p-nayin {
+    font-size: 0.9em;
+    color: #7f8c8d;
+    font-style: italic;
+    font-family: serif;
+}
+
+.p-hidden {
+    font-size: 0.85em;
+    color: #636e72;
+    max-width: 150px;
+    line-height: 1.4;
+}
+
+/* Shen Sha Badges */
+.p-shensha {
+    max-width: 250px;
+    line-height: 1.8;
+}
+
+.ss-badge {
+    display: inline-block;
+    background: rgba(255, 118, 117, 0.1);
+    color: #d63031;
+    padding: 3px 8px;
+    border-radius: 12px;
+    margin: 2px 4px 2px 0;
+    border: 1px solid rgba(255, 118, 117, 0.3);
+    font-size: 0.8em;
+    white-space: nowrap;
+    font-weight: 500;
+}
+
+/* Da Yun Timeline (Horizontal Scroll) */
+.dayun-scroll {
+    display: flex;
+    overflow-x: auto;
+    gap: 12px;
+    padding: 10px 5px 20px 5px;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e0 #f1f2f6;
+    scroll-behavior: smooth;
+    align-items: flex-start;
+}
+
+.dayun-scroll::-webkit-scrollbar {
+    height: 8px;
+}
+
+.dayun-scroll::-webkit-scrollbar-track {
+    background: #f1f2f6;
+    border-radius: 4px;
+}
+
+.dayun-scroll::-webkit-scrollbar-thumb {
+    background: #cbd5e0;
+    border-radius: 4px;
+}
+
+.dayun-scroll::-webkit-scrollbar-thumb:hover {
+    background: #a0aec0;
+}
+
+.dy-item {
+    flex: 0 0 100px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 15px 0;
+    text-align: center;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    cursor: default;
+    position: relative;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+}
+
+.dy-item:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
+    border-color: #a29bfe;
+    z-index: 10;
+}
+
+.dy-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 5px;
+    background: #e2e8f0;
+    transition: background 0.3s;
+}
+
+.dy-item:hover::before {
+    background: linear-gradient(90deg, #a29bfe, #6c5ce7);
+}
+
+.dy-head {
+    border-bottom: 1px dashed #edf2f7;
+    padding-bottom: 8px;
+    margin-bottom: 10px;
+}
+
+.dy-age {
+    display: block;
+    font-weight: 800;
+    color: #6c5ce7;
+    font-size: 1.25em;
+    margin-bottom: 2px;
+}
+
+.dy-year {
+    font-size: 0.8em;
+    color: #a0aec0;
+    font-family: monospace;
+}
+
+.dy-body {
+    padding: 0 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.dy-gz {
+    font-size: 1.6em;
+    font-weight: 800;
+    font-family: "Noto Serif SC", serif;
+    color: #2d3436;
+    margin-bottom: 6px;
+    line-height: 1.2;
+    background: -webkit-linear-gradient(45deg, #2d3436, #636e72);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.dy-gan,
+.dy-zhi {
+    display: inline-block;
+}
+
+.dy-nayin {
+    font-size: 0.75em;
+    color: #95a5a6;
+    margin-bottom: 8px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    font-weight: 500;
+}
+
+.dy-tg {
+    display: inline-block;
+    font-size: 0.75em;
+    color: #fff;
+    background: linear-gradient(135deg, #a29bfe, #6c5ce7);
+    padding: 3px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+    box-shadow: 0 2px 4px rgba(108, 92, 231, 0.2);
+}
+
+/* Info Grid */
+.info-grid-2 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-top: 10px;
+}
+
+.ig-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f8fafc;
+    padding: 14px 18px;
+    border-radius: 10px;
+    border: 1px solid #edf2f7;
+    transition: background 0.2s;
+}
+
+.ig-item:hover {
+    background: #fff;
+    border-color: #cbd5e0;
+}
+
+.ig-label {
+    color: #718096;
+    font-size: 0.95em;
+    font-weight: 500;
+}
+
+.ig-val {
+    font-weight: 700;
+    color: #2d3436;
+    font-size: 1.05em;
+}
+
+/* Pillar Cards (Visual Block View) */
+.bazi-structure {
+    background: #fff;
+    border-radius: 12px;
+    margin-bottom: 20px;
+}
+
+.pillar-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+}
+
+.pillar-card {
+    background: linear-gradient(to bottom right, #fdfbfb, #ebedee);
+    border: 1px solid #e1e4e8;
+    border-radius: 12px;
+    padding: 15px 10px;
+    text-align: center;
+    transition: transform 0.2s, box-shadow 0.2s;
+    position: relative;
+    overflow: hidden;
+}
+
+.pillar-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.06);
+    border-color: #b2bec3;
+}
+
+.pillar-label {
+    font-size: 0.9em;
+    color: #636e72;
+    margin-bottom: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.pillar-gan,
+.pillar-zhi {
+    font-size: 2em;
+    font-weight: 800;
+    font-family: "Noto Serif SC", serif;
+    color: #2d3436;
+    line-height: 1.4;
+    position: relative;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.tag {
+    position: absolute;
+    font-size: 0.25em;
+    padding: 2px 4px;
+    border-radius: 4px;
+    font-weight: normal;
+    font-family: sans-serif;
+    line-height: 1;
+}
+
+.pillar-gan .tag {
+    top: 5px;
+    right: 15px;
+    background: rgba(0, 0, 0, 0.05);
+    color: #636e72;
+}
+
+.pillar-zhi .tag {
+    bottom: 5px;
+    right: 15px;
+    background: rgba(0, 0, 0, 0.05);
+    color: #636e72;
+}
+
+.pillar-hidden {
+    margin-top: 12px;
+    font-size: 0.8em;
+    color: #7f8c8d;
+    border-top: 1px dashed #dcdde1;
+    padding-top: 8px;
+}
+
+@media (max-width: 600px) {
+    .pillar-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}

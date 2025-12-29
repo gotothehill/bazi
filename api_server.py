@@ -309,42 +309,117 @@ class ShengxiaoAPI:
         
         return result
 
-def build_bazi_struct(birth_date, birth_time="8", calendar_type="农历"):
-    """生成结构化的八字排盘数据，便于前端展示表格/图表"""
+
+def calculate_shensha(eight_char, lunar):
+    """计算核心神煞"""
+    day_gan = eight_char.getDayGan()
+    day_zhi = eight_char.getDayZhi()
+    year_zhi = eight_char.getYearZhi()
+    
+    shensha_map = { "year": [], "month": [], "day": [], "time": [] }
+    zhis = [eight_char.getYearZhi(), eight_char.getMonthZhi(), eight_char.getDayZhi(), eight_char.getTimeZhi()]
+    labels = ["year", "month", "day", "time"]
+    
+    # 1. 天乙贵人
+    tianyi_rules = {
+        "甲": ["丑", "未"], "戊": ["丑", "未"], "庚": ["丑", "未"],
+        "乙": ["子", "申"], "己": ["子", "申"],
+        "丙": ["亥", "酉"], "丁": ["亥", "酉"],
+        "壬": ["卯", "巳"], "癸": ["卯", "巳"],
+        "辛": ["午", "寅"]
+    }
+    target_zhis = tianyi_rules.get(day_gan, [])
+    for i, zhi in enumerate(zhis):
+        if zhi in target_zhis: shensha_map[labels[i]].append("天乙贵人")
+            
+    # 2. 桃花
+    taohua_rules = {
+        "申": "酉", "子": "酉", "辰": "酉", "寅": "卯", "午": "卯", "戌": "卯",
+        "巳": "午", "酉": "午", "丑": "午", "亥": "子", "卯": "子", "未": "子"
+    }
+    targets = {taohua_rules.get(year_zhi), taohua_rules.get(day_zhi)}
+    for i, zhi in enumerate(zhis):
+        if zhi in targets: shensha_map[labels[i]].append("桃花")
+            
+    # 3. 驿马
+    yima_rules = {
+        "申": "寅", "子": "寅", "辰": "寅", "寅": "申", "午": "申", "戌": "申",
+        "巳": "亥", "酉": "亥", "丑": "亥", "亥": "巳", "卯": "巳", "未": "巳"
+    }
+    targets = {yima_rules.get(year_zhi), yima_rules.get(day_zhi)}
+    for i, zhi in enumerate(zhis):
+        if zhi in targets: shensha_map[labels[i]].append("驿马")
+            
+    # 4. 空亡
+    xun_kong = eight_char.getDayXunKong()
+    for i, zhi in enumerate(zhis):
+        if zhi in xun_kong: shensha_map[labels[i]].append("空亡")
+            
+    # 5. 羊刃
+    yangren_rules = {"甲": "卯", "乙": "辰", "丙": "午", "戊": "午", "庚": "酉", "壬": "子"}
+    if day_gan in yangren_rules:
+        target = yangren_rules[day_gan]
+        for i, zhi in enumerate(zhis):
+            if zhi == target: shensha_map[labels[i]].append("羊刃")
+            
+    # 6. 文昌
+    wenchang_rules = {
+        "甲": "巳", "乙": "午", "丙": "申", "戊": "申", "丁": "酉", "己": "酉",
+        "庚": "亥", "辛": "子", "壬": "寅", "癸": "卯"
+    }
+    target = wenchang_rules.get(day_gan)
+    for i, zhi in enumerate(zhis):
+        if zhi == target: shensha_map[labels[i]].append("文昌")
+            
+    return shensha_map
+
+# 纳音查找表
+NAYIN = {
+    '甲子': '海中金', '乙丑': '海中金', '丙寅': '炉中火', '丁卯': '炉中火',
+    '戊辰': '大林木', '己巳': '大林木', '庚午': '路旁土', '辛未': '路旁土',
+    '壬申': '剑锋金', '癸酉': '剑锋金', '甲戌': '山头火', '乙亥': '山头火',
+    '丙子': '涧下水', '丁丑': '涧下水', '戊寅': '城头土', '己卯': '城头土',
+    '庚辰': '白蜡金', '辛巳': '白蜡金', '壬午': '杨柳木', '癸未': '杨柳木',
+    '甲申': '泉中水', '乙酉': '泉中水', '丙戌': '屋上土', '丁亥': '屋上土',
+    '戊子': '霹雳火', '己丑': '霹雳火', '庚寅': '松柏木', '辛卯': '松柏木',
+    '壬辰': '长流水', '癸巳': '长流水', '甲午': '沙中金', '乙未': '沙中金',
+    '丙申': '山下火', '丁酉': '山下火', '戊戌': '平地木', '己亥': '平地木',
+    '庚子': '壁上土', '辛丑': '壁上土', '壬寅': '金箔金', '癸卯': '金箔金',
+    '甲辰': '覆灯火', '乙巳': '覆灯火', '丙午': '天河水', '丁未': '天河水',
+    '戊申': '大驿土', '己酉': '大驿土', '庚戌': '钗钏金', '辛亥': '钗钏金',
+    '壬子': '桑柘木', '癸丑': '桑柘木', '甲寅': '大溪水', '乙卯': '大溪水',
+    '丙辰': '沙中土', '丁巳': '沙中土', '戊午': '天上火', '己未': '天上火',
+    '庚申': '石榴木', '辛酉': '石榴木', '壬戌': '大海水', '癸亥': '大海水'
+}
+
+def build_bazi_struct(birth_date, birth_time="8", calendar_type="农历", gender="男"):
+    """生成结构化的八字排盘数据，专业版"""
     try:
         year, month, day = [int(x) for x in birth_date.split('-')]
         hour = int(birth_time)
-
         if calendar_type == "公历":
             lunar = Solar.fromYmdHms(year, month, day, hour, 0, 0).getLunar()
         else:
             lunar = Lunar.fromYmdHms(year, month, day, hour, 0, 0)
 
         eight_char = lunar.getEightChar()
-        gans = [
-            eight_char.getYearGan(),
-            eight_char.getMonthGan(),
-            eight_char.getDayGan(),
-            eight_char.getTimeGan()
-        ]
-        zhis = [
-            eight_char.getYearZhi(),
-            eight_char.getMonthZhi(),
-            eight_char.getDayZhi(),
-            eight_char.getTimeZhi()
-        ]
-
+        gans = [eight_char.getYearGan(), eight_char.getMonthGan(), eight_char.getDayGan(), eight_char.getTimeGan()]
+        zhis = [eight_char.getYearZhi(), eight_char.getMonthZhi(), eight_char.getDayZhi(), eight_char.getTimeZhi()]
+        na_yins = [eight_char.getYearNaYin(), eight_char.getMonthNaYin(), eight_char.getDayNaYin(), eight_char.getTimeNaYin()]
+        
         day_master = gans[2]
+        shenshas = calculate_shensha(eight_char, lunar)
+        
         pillars = []
         labels = ["年柱", "月柱", "日柱", "时柱"]
+        keys = ["year", "month", "day", "time"]
 
-        for label, gan, zhi in zip(labels, gans, zhis):
-            hidden_stems = list(zhi5[zhi].keys())
+        for i, (label, gan, zhi) in enumerate(zip(labels, gans, zhis)):
+            hidden_stems = list(zhi5.get(zhi, {}).keys())
             main_hidden = hidden_stems[0] if hidden_stems else None
             pillars.append({
-                "label": label,
-                "gan": gan,
-                "zhi": zhi,
+                "label": label, "gan": gan, "zhi": zhi,
+                "na_yin": na_yins[i], "shen_sha": shenshas[keys[i]],
                 "gan_element": gan5.get(gan),
                 "zhi_element": gan5.get(main_hidden) if main_hidden else None,
                 "gan_ten_god": ten_deities[day_master][gan],
@@ -354,13 +429,102 @@ def build_bazi_struct(birth_date, birth_time="8", calendar_type="农历"):
                 "hidden_elements": [gan5.get(h) for h in hidden_stems]
             })
 
-        # 五行计分：沿用原脚本的简化权重（干加5分，支藏干按权值累加）
         five_elements = {"金": 0, "木": 0, "水": 0, "火": 0, "土": 0}
-        for gan in gans:
-            five_elements[gan5[gan]] += 5
+        for gan in gans: five_elements[gan5[gan]] += 5
         for zhi in zhis:
-            for stem, score in zhi5[zhi].items():
-                five_elements[gan5[stem]] += score
+            if zhi in zhi5:
+                for stem, score in zhi5[zhi].items(): five_elements[gan5[stem]] += score
+                    
+        # 大运计算
+        gender_num = 1 if gender == "男" else 0
+        yun = eight_char.getYun(gender_num)
+        da_yun_list = []
+        da_yuns = yun.getDaYun()
+        for i in range(10):
+            if i >= len(da_yuns): break
+            dy = da_yuns[i]
+            gan_zhi = dy.getGanZhi()
+            start_year = dy.getStartYear()
+            if len(gan_zhi) >= 2:
+                dg, dz = gan_zhi[0], gan_zhi[1]
+                tg_val = ten_deities[day_master].get(dg, '')
+            else:
+                dg, dz = '', ''
+                tg_val = ''
+                
+            da_yun_list.append({
+                "index": i, "gan_zhi": gan_zhi, "gan": dg, "zhi": dz,
+                "start_year": start_year, "start_age": dy.getStartAge(), "end_age": dy.getEndAge(),
+                "ten_god": tg_val,
+                "ten_god": tg_val,
+                "na_yin": NAYIN.get(gan_zhi, '') # Use manual lookup
+            })
+
+
+        # --- 新增专业计算 logic ---
+        
+        # 1. 计算胎元 (Tai Yuan)
+        # 规则: 月干后一位, 月支后三位
+        def get_tai_yuan(month_gan, month_zhi):
+            stems = ["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸"]
+            branches = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"]
+            
+            try:
+                g_idx = stems.index(month_gan)
+                z_idx = branches.index(month_zhi)
+                new_g = stems[(g_idx + 1) % 10]
+                new_z = branches[(z_idx + 3) % 12]
+                return f"{new_g}{new_z}"
+            except:
+                return "未知"
+
+        tai_yuan = get_tai_yuan(gans[1], zhis[1])
+        tai_yuan_nayin = NAYIN.get(tai_yuan, '')
+
+        # 2. 计算身强身弱与喜用神 (Basic Balancing Method)
+        # 此算法基于五行得分对比 (V1.0)
+        
+        # 定义五行生克关系
+        elements_order = ["木", "火", "土", "金", "水"] # 0,1,2,3,4
+        dm_el = gan5.get(day_master) # 日主五行
+        
+        # 计算同党 (帮我) 与 异党 (耗我)
+        # 同党: 日主五行 (比劫) + 生日主五行 (印枭)
+        # 异党: 克日主 (官杀) + 日主生 (食伤) + 日主克 (财才)
+        
+        idx = elements_order.index(dm_el)
+        resource_el = elements_order[(idx - 1) % 5]    # 印
+        output_el = elements_order[(idx + 1) % 5]      # 食
+        wealth_el = elements_order[(idx + 2) % 5]      # 财
+        power_el = elements_order[(idx + 3) % 5]       # 官
+        
+        score_same = (five_elements.get(dm_el, 0) + five_elements.get(resource_el, 0))
+        score_diff = (five_elements.get(output_el, 0) + five_elements.get(wealth_el, 0) + five_elements.get(power_el, 0))
+        
+        total_score = score_same + score_diff
+        weak_strength = "中和"
+        xi_yong = [] # 喜用
+        ji_shen = [] # 忌神
+        
+        # 简化判定标准 (45% - 55% 视为中和，实际应用可能更复杂)
+        # 这里采用倾向性判定
+        if score_same >= total_score * 0.55:
+            weak_strength = "身强"
+            xi_yong = [output_el, wealth_el, power_el] # 喜克泄耗
+            ji_shen = [dm_el, resource_el]
+        elif score_same <= total_score * 0.45:
+            weak_strength = "身弱"
+            xi_yong = [dm_el, resource_el] # 喜生扶
+            ji_shen = [output_el, wealth_el, power_el]
+        else:
+            weak_strength = "中和偏" + ("强" if score_same > score_diff else "弱")
+            # 中和者通常喜平衡，视具体过旺过弱项微调，此处简化为取通关
+            if score_same > score_diff:
+                xi_yong = [output_el, wealth_el, power_el]
+                ji_shen = [dm_el, resource_el]
+            else:
+                 xi_yong = [dm_el, resource_el]
+                 ji_shen = [output_el, wealth_el, power_el]
 
         advice = {}
         try:
@@ -370,18 +534,27 @@ def build_bazi_struct(birth_date, birth_time="8", calendar_type="农历"):
                 "jin_bu_huan": jinbuhuan.get(key),
                 "ge_ju": ges.get(ten_deities[day_master]['本'], {}).get(zhis[1])
             }
-        except Exception as e:
-            print(f"结构化建议生成失败: {e}", file=sys.stderr)
+        except: pass
 
         return {
             "pillars": pillars,
             "day_master": day_master,
             "day_master_element": gan5.get(day_master),
             "five_elements": five_elements,
-            "advice": advice
+            "advice": advice,
+            "da_yun": da_yun_list,
+            "start_yun_desc": f"{yun.getStartYear()}年{yun.getStartMonth()}月起运",
+            "extras": { 
+                "kong_wang": eight_char.getDayXunKong(), 
+                "ming_gong": eight_char.getMingGong(),
+                "tai_yuan": tai_yuan,
+                "tai_yuan_nayin": tai_yuan_nayin,
+                "strength": weak_strength,
+                "yong_shen": xi_yong,
+                "ji_shen": ji_shen
+            }
         }
     except Exception as e:
-        # 结构化信息失败不应中断主流程
         print(f"结构化八字生成失败: {e}", file=sys.stderr)
         return None
 
